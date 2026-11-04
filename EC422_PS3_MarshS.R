@@ -228,6 +228,78 @@ retail_nsa_x13 <- retail_raw_ts |>
 
 retail_nsa_x13 |> autoplot()
 
+# 4.3 a
+
+retail_nsa_x13 |>
+  as_tibble() |>
+  mutate(cal_month = month(Month, label = TRUE)) |>
+  group_by(cal_month) |>
+  summarize(avg_seasonal_factor = mean(seasonal)) |>
+  arrange(desc(avg_seasonal_factor))
+
+# 4.3 b
+
+sa_compare <- retail_nsa_x13 |>
+  as_tibble() |>
+  select(Month, mine = season_adjust) |>
+  left_join(
+    retail_raw_ts |>
+      filter(series_id == "RSAFS") |>
+      as_tibble() |>
+      transmute(Month, census = sales),
+    by = "Month"
+  ) |>
+  mutate(pct_diff = 100 * (log(mine) - log(census)))
+
+sa_compare |>
+  ggplot(aes(x = Month, y = pct_diff)) +
+  geom_line() +
+  labs(title = "My X-13 Seasonal Adjustment Minus the Census Bureau's",
+       x = NULL, y = "Difference (%)") +
+  theme_minimal()
+
+sa_compare |> slice_max(abs(pct_diff), n = 5)
+
+
+# 4.4 Linear Trend Seasonal adjustments
+
+# 4.4 a 
+
+can_gas_fit <- can_gas |>
+  model(TSLM(log_volume ~ trend() + season()))
+report(can_gas_fit)
+
+can_gas_fit |>
+  tidy() |>
+  select(term, estimate, std.error, statistic, p.value) |>
+  knitr::kable(digits = 3)
+
+# avg monthly growth %
+can_gas_fit |> tidy() |> filter(term == "trend()") |> mutate(pct = 100 * estimate)
+
+# month with largest |t| among seasonal dummies
+can_gas_fit |>
+  tidy() |>
+  filter(str_detect(term, "season")) |>
+  slice_max(abs(statistic), n = 1)
+
+# 4.4 b
+can_gas_fit |>
+  augment() |>
+  ggplot(aes(x = Month)) +
+  geom_line(aes(y = log_volume, color = "Actual")) +
+  geom_line(aes(y = .fitted, color = "Fitted")) +
+  labs(title = "Linear Trend + Seasonal Dummies Fit: Canadian Gas Production",
+       y = "log(Volume)", color = NULL) +
+  theme_minimal()
+
+# 4.4 c
+can_gas_fit |> gg_tsresiduals()
+
+can_gas_fit |>
+  augment() |>
+  features(.innov, ljung_box, lag = 24)
+
 
 
 

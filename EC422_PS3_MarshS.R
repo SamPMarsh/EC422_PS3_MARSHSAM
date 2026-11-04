@@ -121,7 +121,9 @@ can_gas |>
        x = NULL, y = "Billions of cubic meters") +
   theme_minimal()
 
-# 3s1 logs
+# 3.1 logs
+
+# 3.1 b
 
 can_gas <- can_gas |> mutate(log_volume = log(Volume))
 can_gas |>
@@ -129,3 +131,103 @@ can_gas |>
   labs(title = "Log of Canadian Natural Gas Production",
        x = NULL, y = "log(Volume)") +
   theme_minimal()
+
+# 3.1 c
+
+retail_nsa <- retail_raw_ts |>
+  filter(series_id == "RSAFSNA") |>
+  mutate(log_sales = log(sales))
+
+retail_nsa |>
+  autoplot(sales) +
+  labs(title = "NSA Retail Sales (level)", x = NULL, y = "Millions of dollars") +
+  theme_minimal()
+
+retail_nsa |>
+  autoplot(log_sales) +
+  labs(title = "NSA Retail Sales (log)", x = NULL, y = "log(sales)") +
+  theme_minimal()
+
+# 3.2 growth rates
+
+can_gas <- can_gas |>
+  mutate(
+    growth_direct  = 100 * difference(Volume) / lag(Volume),
+    growth_logdiff = 100 * difference(log_volume)
+  )
+
+can_gas |>
+  autoplot(growth_direct) +
+  labs(title = "Canadian Gas Production: Month-over-Month Growth",
+       x = NULL, y = "Growth rate (%)") +
+  theme_minimal()
+
+can_gas <- can_gas |>
+  mutate(growth_gap = abs(growth_direct - growth_logdiff))
+
+can_gas |>
+  autoplot(growth_gap) +
+  labs(title = "Gap Between Direct and Log-Difference Growth",
+       x = NULL, y = "Absolute gap (percentage points)") +
+  theme_minimal()
+
+# 3.3 seasonal differences
+
+retail_raw_ts <- retail_raw_ts |>
+  group_by_key() |>
+  mutate(growth_mom = 100 * difference(log(sales))) |>
+  ungroup()
+
+retail_raw_ts |>
+  autoplot(growth_mom) +
+  labs(title = "Month-over-Month Growth: SA vs. NSA Retail Sales",
+       x = NULL, y = "Growth rate (%)", color = NULL) +
+  theme_minimal()
+
+# 4.1 season plots
+
+#4.1 a
+
+retail_raw_ts |>
+  filter(series_id == "RSAFSNA") |>
+  gg_season(sales) +
+  labs(title = "Seasonal Pattern in NSA Retail Sales",
+       y = "Millions of dollars") +
+  theme_minimal()
+
+# 4.1 b
+
+retail_raw_ts |>
+  filter(series_id == "RSAFS") |>
+  gg_season(sales) +
+  labs(title = "Seasonal Pattern in SA Retail Sales",
+       y = "Millions of dollars") +
+  theme_minimal()
+
+# 4.1 c
+
+can_gas |>
+  gg_season(log_volume) +
+  labs(title = "Seasonal Pattern in Canadian Gas Production (log)",
+       y = "log(Volume)") +
+  theme_minimal()
+
+# 4.2 subseries plot
+
+can_gas |>
+  gg_subseries(log_volume) +
+  labs(title = "Subseries Plot: Canadian Gas Production",
+       y = "log(Volume)")
+
+# 4.3 seasonal differences
+
+retail_nsa_x13 <- retail_raw_ts |>
+  filter(series_id == "RSAFSNA") |>
+  model(x13 = X_13ARIMA_SEATS(sales)) |>
+  components()
+
+retail_nsa_x13 |> autoplot()
+
+
+
+
